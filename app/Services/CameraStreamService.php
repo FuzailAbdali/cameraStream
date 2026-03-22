@@ -11,7 +11,7 @@ class CameraStreamService
 {
     public function ensureStreamDirectory(Camera $camera): string
     {
-        $directory = "streams/{$camera->getKey()}";
+        $directory = $camera->stream_directory;
         Storage::disk('local')->makeDirectory($directory);
 
         return Storage::disk('local')->path($directory);
@@ -26,7 +26,7 @@ class CameraStreamService
     {
         $outputDirectory = $this->ensureStreamDirectory($camera);
         $camera->forceFill([
-            'stream_path' => "streams/{$camera->getKey()}",
+            'stream_path' => $camera->stream_directory,
             'stream_status' => 'starting',
             'last_stream_started_at' => now(),
             'last_stream_error' => null,

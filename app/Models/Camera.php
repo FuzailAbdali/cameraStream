@@ -52,8 +52,13 @@ class Camera extends Model
         return sprintf('rtsp://%s:%s@%s:%s/stream', $username, $password, $host, $port);
     }
 
+    public function getStreamDirectoryAttribute(): string
+    {
+        return trim($this->stream_path ?: "streams/{$this->getKey()}", '/');
+    }
+
     public function getStreamPlaylistAttribute(): string
     {
-        return trim(($this->stream_path ?: "streams/{$this->getKey()}").'/index.m3u8', '/');
+        return $this->stream_directory.'/index.m3u8';
     }
 }
