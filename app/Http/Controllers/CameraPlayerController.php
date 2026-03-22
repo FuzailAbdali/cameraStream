@@ -10,6 +10,8 @@ class CameraPlayerController extends Controller
 {
     use AuthorizesRequests;
 
+    protected string $disk = 'public';
+
     public function index()
     {
         $this->authorize('viewAny', Camera::class);
@@ -23,9 +25,9 @@ class CameraPlayerController extends Controller
     {
         $this->authorize('stream', $camera);
 
-        abort_unless(Storage::disk('local')->exists($camera->stream_playlist), 404);
+        abort_unless(Storage::disk($this->disk)->exists($camera->stream_playlist), 404);
 
-        $content = Storage::disk('local')->get($camera->stream_playlist);
+        $content = Storage::disk($this->disk)->get($camera->stream_playlist);
         $content = preg_replace_callback('/segment_(\d+)\.ts/', function (array $matches) use ($camera): string {
             return route('cameras.segment', [$camera, $matches[0]]);
         }, $content);
@@ -33,6 +35,7 @@ class CameraPlayerController extends Controller
         return response($content, 200, [
             'Content-Type' => 'application/vnd.apple.mpegurl',
             'Access-Control-Allow-Origin' => '*',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
         ]);
     }
 
@@ -40,12 +43,13 @@ class CameraPlayerController extends Controller
     {
         $this->authorize('stream', $camera);
 
-        $path = trim($camera->stream_directory."/{$file}", "/");
-        abort_unless(Storage::disk('local')->exists($path), 404);
+        $path = trim($camera->stream_directory."/{$file}", '/');
+        abort_unless(Storage::disk($this->disk)->exists($path), 404);
 
-        return response(Storage::disk('local')->get($path), 200, [
+        return response(Storage::disk($this->disk)->get($path), 200, [
             'Content-Type' => 'video/mp2t',
             'Access-Control-Allow-Origin' => '*',
+            'Cache-Control' => 'public, max-age=5',
         ]);
     }
 }

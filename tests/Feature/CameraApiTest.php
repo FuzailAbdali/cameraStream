@@ -59,6 +59,8 @@ class CameraApiTest extends TestCase
 
     public function test_stream_endpoint_returns_the_playlist_url_once_the_playlist_exists(): void
     {
+        Storage::fake('public');
+
         $camera = Camera::query()->create([
             'name' => 'Parking Lot',
             'ip_address' => '192.168.1.14',
@@ -67,7 +69,7 @@ class CameraApiTest extends TestCase
             'password' => 'password',
         ]);
 
-        Storage::disk('local')->put($camera->stream_playlist, '#EXTM3U');
+        Storage::disk('public')->put($camera->stream_playlist, '#EXTM3U');
 
         $this->getJson("/api/cameras/{$camera->getKey()}/stream")
             ->assertOk()
