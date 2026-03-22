@@ -49,7 +49,7 @@ class CameraApiTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->getJson("/api/cameras/{$camera->getKey()}/stream")
+        $this->getJson("/cameras/{$camera->getKey()}/stream")
             ->assertOk()
             ->assertJsonPath('status', 'queued')
             ->assertJsonPath('playlist_url', null);
@@ -70,7 +70,7 @@ class CameraApiTest extends TestCase
         File::ensureDirectoryExists(public_path($camera->stream_directory));
         File::put(public_path($camera->stream_playlist), '#EXTM3U');
 
-        $this->getJson("/api/cameras/{$camera->getKey()}/stream")
+        $this->getJson("/cameras/{$camera->getKey()}/stream")
             ->assertOk()
             ->assertJsonPath('status', 'idle')
             ->assertJsonPath('playlist_url', route('cameras.playlist', $camera));
@@ -91,7 +91,7 @@ class CameraApiTest extends TestCase
         $cameraId = \DB::table('cameras')->value('id');
 
         $this->getJson('/api/cameras')->assertOk()->assertJsonCount(1);
-        $this->getJson("/api/cameras/{$cameraId}/stream")
+        $this->getJson("/cameras/{$cameraId}/stream")
             ->assertOk()
             ->assertJsonPath('status', 'queued');
     }

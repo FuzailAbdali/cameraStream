@@ -39,7 +39,7 @@
             $cameraStreams = $cameras->map(function ($camera) {
                 return [
                     'id' => $camera->id,
-                    'streamEndpoint' => url("/api/cameras/{$camera->id}/stream"),
+                    'streamEndpoint' => route('cameras.stream', $camera),
                     'initialStatus' => $camera->stream_status,
                 ];
             })->values()->all();
