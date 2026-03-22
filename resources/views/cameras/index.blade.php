@@ -30,10 +30,16 @@
     </div>
 
     <script>
-        const cameras = @json($cameras->map(fn ($camera) => [
-            'id' => $camera->id,
-            'playlist' => route('cameras.playlist', $camera),
-        ]));
+        @php
+            $cameraPlaylists = $cameras->map(function ($camera) {
+                return [
+                    'id' => $camera->id,
+                    'playlist' => route('cameras.playlist', $camera),
+                ];
+            })->values()->all();
+        @endphp
+
+        const cameras = @json($cameraPlaylists);
 
         cameras.forEach((camera) => {
             const video = document.getElementById(`camera-${camera.id}`);
