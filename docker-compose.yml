@@ -7,7 +7,7 @@ services:
       - '8000:8000'
     volumes:
       - .:/var/www/html
-      - stream-data:/var/www/html/storage/app/public/streams
+      - stream-data:/var/www/html/public/streams
     environment:
       APP_ENV: local
       APP_DEBUG: 'true'

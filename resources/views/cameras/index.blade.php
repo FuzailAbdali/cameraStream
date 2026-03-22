@@ -18,7 +18,7 @@
 </head>
 <body>
     <h1>IP Camera Management</h1>
-    <p>Manage RTSP sources, queue FFmpeg HLS transcoding, and preview live playlists generated in public storage.</p>
+    <p>Manage RTSP sources, queue FFmpeg HLS transcoding, and preview live playlists generated in the public streams directory.</p>
 
     <div class="grid">
         @foreach ($cameras as $camera)
