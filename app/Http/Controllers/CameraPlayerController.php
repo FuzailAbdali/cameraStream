@@ -40,7 +40,7 @@ class CameraPlayerController extends Controller
     {
         $this->authorize('stream', $camera);
 
-        $path = "streams/{$camera->getKey()}/{$file}";
+        $path = trim($camera->stream_directory."/{$file}", "/");
         abort_unless(Storage::disk('local')->exists($path), 404);
 
         return response(Storage::disk('local')->get($path), 200, [
