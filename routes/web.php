@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\CameraPlayerController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::redirect('/', '/cameras');
+Route::get('/cameras', [CameraPlayerController::class, 'index'])->name('cameras.index');
+Route::get('/streams/{camera}/index.m3u8', [CameraPlayerController::class, 'playlist'])->name('cameras.playlist');
+Route::get('/streams/{camera}/{file}', [CameraPlayerController::class, 'segment'])->where('file', '.*')->name('cameras.segment');
