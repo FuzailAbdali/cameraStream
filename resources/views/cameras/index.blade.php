@@ -9,7 +9,7 @@
         body { font-family: Arial, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
         .card { background: #1f2937; border-radius: 16px; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
-        .meta { color: #93c5fd; margin-bottom: 1rem; }
+        .meta { color: #93c5fd; margin-bottom: 1rem; word-break: break-all; }
         .status-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: .75rem 0 1rem; }
         .badge { display:inline-block; padding:.25rem .65rem; background:#2563eb; border-radius:999px; font-size:.875rem; }
         .message { color: #d1d5db; font-size: .875rem; margin: 0; }
@@ -18,7 +18,7 @@
 </head>
 <body>
     <h1>IP Camera Management</h1>
-    <p>Manage RTSP sources, queue FFmpeg HLS transcoding, and preview live playlists generated in local storage.</p>
+    <p>Manage RTSP sources, queue FFmpeg HLS transcoding, and preview live playlists generated in public storage.</p>
 
     <div class="grid">
         @foreach ($cameras as $camera)
@@ -29,7 +29,7 @@
                     <div class="badge" data-status-badge="{{ $camera->id }}">Status: {{ $camera->stream_status }}</div>
                     <p class="message" data-status-message="{{ $camera->id }}">Preparing stream…</p>
                 </div>
-                <video id="camera-{{ $camera->id }}" controls muted playsinline></video>
+                <video id="camera-{{ $camera->id }}" controls muted playsinline autoplay></video>
             </section>
         @endforeach
     </div>
@@ -57,6 +57,7 @@
 
             if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = playlistUrl;
+                video.play().catch(() => {});
                 return;
             }
 
@@ -65,9 +66,18 @@
                     video.hlsInstance.destroy();
                 }
 
-                const hls = new Hls();
+                const hls = new Hls({
+                    lowLatencyMode: true,
+                    liveSyncDurationCount: 3,
+                });
                 hls.loadSource(playlistUrl);
                 hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(() => {});
+                });
+                hls.on(Hls.Events.ERROR, (_, data) => {
+                    console.error('HLS playback error', data);
+                });
                 video.hlsInstance = hls;
             }
         };

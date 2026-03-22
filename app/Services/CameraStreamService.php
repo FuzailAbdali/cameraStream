@@ -9,12 +9,14 @@ use Symfony\Component\Process\Process;
 
 class CameraStreamService
 {
+    protected string $disk = 'public';
+
     public function ensureStreamDirectory(Camera $camera): string
     {
         $directory = $camera->stream_directory;
-        Storage::disk('local')->makeDirectory($directory);
+        Storage::disk($this->disk)->makeDirectory($directory);
 
-        return Storage::disk('local')->path($directory);
+        return Storage::disk($this->disk)->path($directory);
     }
 
     public function playlistPath(Camera $camera): string
@@ -38,12 +40,22 @@ class CameraStreamService
             'ffmpeg',
             '-rtsp_transport', 'tcp',
             '-i', $camera->resolved_rtsp_url,
-            '-c:v', 'copy',
+            '-map', '0:v:0',
+            '-map', '0:a?',
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-tune', 'zerolatency',
+            '-pix_fmt', 'yuv420p',
+            '-profile:v', 'main',
+            '-g', '48',
+            '-sc_threshold', '0',
             '-c:a', 'aac',
+            '-ar', '44100',
+            '-b:a', '128k',
             '-f', 'hls',
             '-hls_time', '2',
             '-hls_list_size', '5',
-            '-hls_flags', 'delete_segments+append_list',
+            '-hls_flags', 'delete_segments+append_list+independent_segments',
             '-hls_segment_filename', $outputDirectory.'/segment_%03d.ts',
             $outputDirectory.'/index.m3u8',
         ]);
@@ -90,7 +102,7 @@ class CameraStreamService
 
     public function streamUrl(Camera $camera): ?string
     {
-        if (! Storage::disk('local')->exists($camera->stream_playlist)) {
+        if (! Storage::disk($this->disk)->exists($camera->stream_playlist)) {
             return null;
         }
 
