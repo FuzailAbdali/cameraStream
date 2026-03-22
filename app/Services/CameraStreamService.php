@@ -3,20 +3,18 @@
 namespace App\Services;
 
 use App\Models\Camera;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
 class CameraStreamService
 {
-    protected string $disk = 'public';
-
     public function ensureStreamDirectory(Camera $camera): string
     {
-        $directory = $camera->stream_directory;
-        Storage::disk($this->disk)->makeDirectory($directory);
+        $directory = $this->streamDirectoryPath($camera);
+        File::ensureDirectoryExists($directory);
 
-        return Storage::disk($this->disk)->path($directory);
+        return $directory;
     }
 
     public function playlistPath(Camera $camera): string
@@ -102,10 +100,15 @@ class CameraStreamService
 
     public function streamUrl(Camera $camera): ?string
     {
-        if (! Storage::disk($this->disk)->exists($camera->stream_playlist)) {
+        if (! File::exists($this->playlistPath($camera))) {
             return null;
         }
 
         return route('cameras.playlist', $camera);
+    }
+
+    protected function streamDirectoryPath(Camera $camera): string
+    {
+        return public_path($camera->stream_directory);
     }
 }

@@ -4,13 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Camera;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 class CameraPlayerController extends Controller
 {
     use AuthorizesRequests;
-
-    protected string $disk = 'public';
 
     public function index()
     {
@@ -25,9 +23,10 @@ class CameraPlayerController extends Controller
     {
         $this->authorize('stream', $camera);
 
-        abort_unless(Storage::disk($this->disk)->exists($camera->stream_playlist), 404);
+        $path = $this->streamPath($camera, 'index.m3u8');
+        abort_unless(File::exists($path), 404);
 
-        $content = Storage::disk($this->disk)->get($camera->stream_playlist);
+        $content = File::get($path);
         $content = preg_replace_callback('/segment_(\d+)\.ts/', function (array $matches) use ($camera): string {
             return route('cameras.segment', [$camera, $matches[0]]);
         }, $content);
@@ -43,13 +42,18 @@ class CameraPlayerController extends Controller
     {
         $this->authorize('stream', $camera);
 
-        $path = trim($camera->stream_directory."/{$file}", '/');
-        abort_unless(Storage::disk($this->disk)->exists($path), 404);
+        $path = $this->streamPath($camera, $file);
+        abort_unless(File::exists($path), 404);
 
-        return response(Storage::disk($this->disk)->get($path), 200, [
+        return response(File::get($path), 200, [
             'Content-Type' => 'video/mp2t',
             'Access-Control-Allow-Origin' => '*',
             'Cache-Control' => 'public, max-age=5',
         ]);
+    }
+
+    protected function streamPath(Camera $camera, string $file): string
+    {
+        return public_path(trim($camera->stream_directory.'/'.$file, '/'));
     }
 }
