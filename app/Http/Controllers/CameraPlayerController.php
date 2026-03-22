@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\StartCameraStreamJob;
 use App\Models\Camera;
+use App\Services\CameraStreamService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\File;
 
 class CameraPlayerController extends Controller
@@ -16,6 +19,23 @@ class CameraPlayerController extends Controller
 
         return view('cameras.index', [
             'cameras' => Camera::query()->latest()->get(),
+        ]);
+    }
+
+    public function stream(Camera $camera, CameraStreamService $streamService): JsonResponse
+    {
+        $this->authorize('stream', $camera);
+
+        if ($camera->stream_status === 'idle' || $streamService->streamUrl($camera) === null) {
+            StartCameraStreamJob::dispatch($camera->getKey());
+            $camera->forceFill(['stream_status' => 'queued'])->save();
+        }
+
+        $camera = $camera->fresh();
+
+        return response()->json([
+            'playlist_url' => $streamService->streamUrl($camera),
+            'status' => $camera->stream_status,
         ]);
     }
 
