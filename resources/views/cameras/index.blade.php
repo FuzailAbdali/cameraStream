@@ -15,6 +15,7 @@
                     <th>IP</th>
                     <th>External IP</th>
                     <th>Port</th>
+                    <th>RTSP Path</th>
                     <th>Stream Status</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -26,6 +27,7 @@
                         <td>{{ $camera->ip_address }}</td>
                         <td>{{ $camera->external_ip ?: '-' }}</td>
                         <td>{{ $camera->port }}</td>
+                        <td>{{ $camera->rtsp_path ?? 'stream' }}</td>
                         <td>
                             <span class="badge text-bg-secondary" data-stream-status>Stopped</span>
                         </td>
@@ -49,7 +51,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center py-4">No cameras configured yet.</td>
+                        <td colspan="7" class="text-center py-4">No cameras configured yet.</td>
                     </tr>
                 @endforelse
             </tbody>

@@ -6,7 +6,10 @@
     <a href="{{ route('cameras.index') }}" class="btn btn-secondary">Back</a>
 </div>
 
-<p><strong>Source RTSP:</strong> {{ $camera->rtsp_url }}</p>
+<div class="mb-3">
+    <label class="form-label"><strong>Source RTSP (debug)</strong></label>
+    <input type="text" class="form-control" value="{{ $camera->rtsp_url }}" readonly>
+</div>
 
 <div class="card p-3" data-stream-container
      data-start-url="{{ route('cameras.start-stream', $camera) }}"

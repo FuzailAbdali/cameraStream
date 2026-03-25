@@ -30,7 +30,16 @@ class CameraController extends Controller
 
     public function store(StoreCameraRequest $request): RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'ip_address' => 'required|ip',
+            'external_ip' => 'nullable|ip',
+            'port' => 'required|integer|between:1,65535',
+            'rtsp_path' => 'nullable|string|max:255',
+            'username' => 'required|string|max:255',
+            'password' => 'required|string|max:255',
+        ]);
+
         $data['rtsp_path'] = Camera::sanitizeRtspPath($request->string('rtsp_path')->toString());
 
         Camera::query()->create($data);
@@ -54,7 +63,16 @@ class CameraController extends Controller
 
     public function update(UpdateCameraRequest $request, Camera $camera): RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'ip_address' => 'required|ip',
+            'external_ip' => 'nullable|ip',
+            'port' => 'required|integer|between:1,65535',
+            'rtsp_path' => 'nullable|string|max:255',
+            'username' => 'required|string|max:255',
+            'password' => 'nullable|string|max:255',
+        ]);
+
         $data['rtsp_path'] = Camera::sanitizeRtspPath($request->string('rtsp_path')->toString());
 
         $camera->update($data);
