@@ -47,6 +47,30 @@ return [
             'report' => false,
         ],
 
+
+        'streams' => [
+            'driver' => 'local',
+            'root' => storage_path('app/streams'),
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'streams_public' => [
+            'driver' => 'local',
+            'root' => storage_path('app/streams'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage/streams',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'recordings' => [
+            'driver' => 'local',
+            'root' => storage_path('app/recordings'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -75,6 +99,7 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
+        public_path('storage/streams') => storage_path('app/streams'),
     ],
 
 ];

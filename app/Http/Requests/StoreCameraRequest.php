@@ -15,13 +15,11 @@ class StoreCameraRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'ip_address' => ['nullable', 'ip'],
+            'ip_address' => ['required', 'ip'],
             'external_ip' => ['nullable', 'ip'],
             'port' => ['required', 'integer', 'between:1,65535'],
-            'forwarded_port' => ['nullable', 'integer', 'between:1,65535'],
             'username' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'max:255'],
-            'rtsp_url' => ['nullable', 'string', 'max:2048'],
         ];
     }
 }
