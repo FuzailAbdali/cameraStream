@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Camera extends Model
@@ -16,6 +17,7 @@ class Camera extends Model
         'external_ip',
         'port',
         'rtsp_path',
+        'rtsp_scheme_id',
         'username',
         'password',
     ];
@@ -34,6 +36,11 @@ class Camera extends Model
         return $this->hasMany(Recording::class);
     }
 
+    public function rtspScheme(): BelongsTo
+    {
+        return $this->belongsTo(RtspScheme::class);
+    }
+
     public function getStreamHostAttribute(): string
     {
         return $this->external_ip ?: $this->ip_address;
@@ -46,8 +53,24 @@ class Camera extends Model
 
     public function getRtspUrlAttribute(): string
     {
-        $username = rawurlencode($this->username);
-        $password = rawurlencode($this->password);
+        return $this->buildRtspUrl();
+    }
+
+    public function buildRtspUrl(): string
+    {
+        $schemeTemplate = $this->rtspScheme?->scheme_template;
+
+        if ($schemeTemplate) {
+            return strtr($schemeTemplate, [
+                '{username}' => urlencode($this->username),
+                '{password}' => urlencode($this->password),
+                '{ip}' => $this->stream_host,
+                '{port}' => (string) $this->port,
+            ]);
+        }
+
+        $username = urlencode($this->username);
+        $password = urlencode($this->password);
         $path = self::sanitizeRtspPath($this->rtsp_path);
 
         return sprintf('rtsp://%s:%s@%s:%d/%s', $username, $password, $this->stream_host, $this->port, $path);

@@ -14,6 +14,7 @@
             <div class="navbar-nav me-auto">
                 <a class="nav-link" href="{{ route('dashboard') }}">Dashboard</a>
                 <a class="nav-link" href="{{ route('cameras.index') }}">Cameras</a>
+                <a class="nav-link" href="{{ route('rtsp-schemes.index') }}">RTSP Schemes</a>
                 <a class="nav-link" href="{{ route('recordings.index') }}">Recordings</a>
             </div>
             <form action="{{ route('logout') }}" method="POST" class="ms-auto">

@@ -15,7 +15,7 @@
                     <th>IP</th>
                     <th>External IP</th>
                     <th>Port</th>
-                    <th>RTSP Path</th>
+                    <th>RTSP Source</th>
                     <th>Stream Status</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -27,7 +27,13 @@
                         <td>{{ $camera->ip_address }}</td>
                         <td>{{ $camera->external_ip ?: '-' }}</td>
                         <td>{{ $camera->port }}</td>
-                        <td>{{ $camera->rtsp_path ?? 'stream' }}</td>
+                        <td>
+                            @if ($camera->rtspScheme)
+                                <span class="badge text-bg-info">{{ $camera->rtspScheme->name }}</span>
+                            @else
+                                {{ $camera->rtsp_path ?? 'stream' }}
+                            @endif
+                        </td>
                         <td>
                             <span class="badge text-bg-secondary" data-stream-status>Stopped</span>
                         </td>
