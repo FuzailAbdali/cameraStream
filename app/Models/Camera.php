@@ -39,6 +39,11 @@ class Camera extends Model
         return $this->external_ip ?: $this->ip_address;
     }
 
+    public function getRtspPathAttribute(?string $value): string
+    {
+        return self::sanitizeRtspPath($value);
+    }
+
     public function getRtspUrlAttribute(): string
     {
         $username = rawurlencode($this->username);
