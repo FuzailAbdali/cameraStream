@@ -64,8 +64,22 @@
         loading.textContent = 'Click "Start Stream" to begin live video.';
     }
 
-    function attachPlayer(url) {
+    async function isPlaylistReady(url) {
+        try {
+            const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+            return response.ok;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    async function attachPlayer(url) {
         if (!url || video.dataset.loadedUrl === url) {
+            return;
+        }
+
+        const ready = await isPlaylistReady(url);
+        if (!ready) {
             return;
         }
 
@@ -103,11 +117,12 @@
         }
 
         const data = await response.json();
-        setStatus(data.status);
+        const status = (data.status || '').toLowerCase();
+        setStatus(status);
 
-        if (data.stream_url) {
+        if (status === 'live' && data.stream_url) {
             currentPlaylistUrl = data.stream_url;
-            attachPlayer(currentPlaylistUrl);
+            await attachPlayer(currentPlaylistUrl);
         }
     }
 
@@ -131,10 +146,12 @@
             }
 
             const data = await response.json();
-            setStatus(data.stream_status || data.status);
-            if (data.stream_url) {
+            const status = (data.stream_status || data.status || '').toLowerCase();
+            setStatus(status);
+
+            if (status === 'live' && data.stream_url) {
                 currentPlaylistUrl = data.stream_url;
-                attachPlayer(currentPlaylistUrl);
+                await attachPlayer(currentPlaylistUrl);
             }
         } catch (error) {
             setStatus('stopped');
@@ -146,7 +163,7 @@
     startButton.addEventListener('click', startStream);
 
     setStatus(container.dataset.initialStatus);
-    if (currentPlaylistUrl) {
+    if ((container.dataset.initialStatus || '').toLowerCase() === 'live' && currentPlaylistUrl) {
         attachPlayer(currentPlaylistUrl);
     }
 
