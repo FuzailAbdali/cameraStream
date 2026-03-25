@@ -19,11 +19,8 @@ class CameraFactory extends Factory
             'ip_address' => fake()->ipv4(),
             'external_ip' => fake()->optional()->ipv4(),
             'port' => 554,
-            'forwarded_port' => fake()->optional()->numberBetween(1024, 65535),
             'username' => fake()->userName(),
             'password' => 'secret',
-            'rtsp_url' => null,
-            'stream_status' => 'idle',
         ];
     }
 }

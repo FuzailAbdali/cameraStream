@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Camera extends Model
 {
@@ -14,16 +15,8 @@ class Camera extends Model
         'ip_address',
         'external_ip',
         'port',
-        'forwarded_port',
         'username',
         'password',
-        'rtsp_url',
-        'stream_path',
-        'stream_status',
-        'last_stream_started_at',
-        'last_stream_heartbeat_at',
-        'last_stream_failed_at',
-        'last_stream_error',
     ];
 
     protected $hidden = ['password'];
@@ -32,33 +25,24 @@ class Camera extends Model
     {
         return [
             'password' => 'encrypted',
-            'last_stream_started_at' => 'datetime',
-            'last_stream_heartbeat_at' => 'datetime',
-            'last_stream_failed_at' => 'datetime',
         ];
     }
 
-    public function getResolvedRtspUrlAttribute(): string
+    public function recordings(): HasMany
     {
-        if (! empty($this->rtsp_url)) {
-            return $this->rtsp_url;
-        }
+        return $this->hasMany(Recording::class);
+    }
 
-        $host = $this->external_ip ?: $this->ip_address;
-        $port = $this->forwarded_port ?: $this->port;
+    public function getStreamHostAttribute(): string
+    {
+        return $this->external_ip ?: $this->ip_address;
+    }
+
+    public function getRtspUrlAttribute(): string
+    {
         $username = rawurlencode($this->username);
         $password = rawurlencode($this->password);
 
-        return sprintf('rtsp://%s:%s@%s:%s/stream', $username, $password, $host, $port);
-    }
-
-    public function getStreamDirectoryAttribute(): string
-    {
-        return trim($this->stream_path ?: "streams/{$this->getKey()}", '/');
-    }
-
-    public function getStreamPlaylistAttribute(): string
-    {
-        return $this->stream_directory.'/index.m3u8';
+        return sprintf('rtsp://%s:%s@%s:%d/stream', $username, $password, $this->stream_host, $this->port);
     }
 }
