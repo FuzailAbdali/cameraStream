@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCameraRequest;
 use App\Http\Requests\UpdateCameraRequest;
 use App\Models\Camera;
 use App\Services\StreamService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -29,19 +30,20 @@ class CameraController extends Controller
 
     public function store(StoreCameraRequest $request): RedirectResponse
     {
-        Camera::query()->create($request->validated());
+        $data = $request->validated();
+        $data['rtsp_path'] = Camera::sanitizeRtspPath($request->string('rtsp_path')->toString());
+
+        Camera::query()->create($data);
 
         return redirect()->route('cameras.index')->with('status', 'Camera created successfully.');
     }
 
     public function show(Camera $camera): View
     {
-        $streamUrl = $this->streamService->startStream($camera);
-        $this->streamService->captureRecording($camera);
-
         return view('cameras.show', [
             'camera' => $camera->fresh(),
-            'streamUrl' => $streamUrl,
+            'streamUrl' => $this->streamService->streamUrl($camera),
+            'streamStatus' => $this->streamService->streamStatus($camera),
         ]);
     }
 
@@ -52,7 +54,10 @@ class CameraController extends Controller
 
     public function update(UpdateCameraRequest $request, Camera $camera): RedirectResponse
     {
-        $camera->update($request->validated());
+        $data = $request->validated();
+        $data['rtsp_path'] = Camera::sanitizeRtspPath($request->string('rtsp_path')->toString());
+
+        $camera->update($data);
 
         return redirect()->route('cameras.index')->with('status', 'Camera updated successfully.');
     }
@@ -69,5 +74,24 @@ class CameraController extends Controller
     public function stream(Camera $id): RedirectResponse
     {
         return redirect()->route('cameras.show', $id);
+    }
+
+    public function startStream(Camera $id): JsonResponse
+    {
+        $this->streamService->startStream($id);
+
+        return response()->json([
+            'status' => 'started',
+            'stream_status' => $this->streamService->streamStatus($id),
+            'stream_url' => $this->streamService->streamUrl($id),
+        ]);
+    }
+
+    public function streamStatus(Camera $id): JsonResponse
+    {
+        return response()->json([
+            'status' => $this->streamService->streamStatus($id),
+            'stream_url' => $this->streamService->streamUrl($id),
+        ]);
     }
 }

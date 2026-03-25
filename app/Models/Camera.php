@@ -15,6 +15,7 @@ class Camera extends Model
         'ip_address',
         'external_ip',
         'port',
+        'rtsp_path',
         'username',
         'password',
     ];
@@ -42,7 +43,22 @@ class Camera extends Model
     {
         $username = rawurlencode($this->username);
         $password = rawurlencode($this->password);
+        $path = self::sanitizeRtspPath($this->rtsp_path);
 
-        return sprintf('rtsp://%s:%s@%s:%d/stream', $username, $password, $this->stream_host, $this->port);
+        return sprintf('rtsp://%s:%s@%s:%d/%s', $username, $password, $this->stream_host, $this->port, $path);
+    }
+
+    public function setRtspPathAttribute(?string $value): void
+    {
+        $this->attributes['rtsp_path'] = self::sanitizeRtspPath($value);
+    }
+
+    public static function sanitizeRtspPath(?string $path): string
+    {
+        $normalized = trim((string) $path);
+        $normalized = ltrim($normalized, '/');
+        $normalized = preg_replace('/[^A-Za-z0-9_\-\.\/\?=&]/', '', $normalized) ?? '';
+
+        return $normalized !== '' ? $normalized : 'stream';
     }
 }
