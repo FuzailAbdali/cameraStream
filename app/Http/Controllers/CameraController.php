@@ -9,6 +9,7 @@ use App\Models\RtspScheme;
 use App\Services\StreamService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 
 class CameraController extends Controller
@@ -86,12 +87,12 @@ class CameraController extends Controller
 
     public function startStream(Camera $id): JsonResponse
     {
-        $this->streamService->startStream($id);
+        $streamUrl = $this->streamService->startStream($id);
 
         return response()->json([
-            'status' => 'started',
+            'status' => $this->streamService->streamStatus($id),
             'stream_status' => $this->streamService->streamStatus($id),
-            'stream_url' => $this->streamService->streamUrl($id),
+            'stream_url' => $streamUrl,
         ]);
     }
 
@@ -100,6 +101,28 @@ class CameraController extends Controller
         return response()->json([
             'status' => $this->streamService->streamStatus($id),
             'stream_url' => $this->streamService->streamUrl($id),
+        ]);
+    }
+
+    public function debugStream(Camera $id): JsonResponse
+    {
+        $playlistPath = storage_path('app/public/streams/'.$id->id.'/index.m3u8');
+        $logPath = storage_path('logs/laravel.log');
+        $logs = [];
+
+        if (File::exists($logPath)) {
+            $lines = file($logPath) ?: [];
+            $logs = array_slice($lines, -30);
+        }
+
+        return response()->json([
+            'camera_id' => $id->id,
+            'rtsp_url' => $id->buildRtspUrl(),
+            'storage_path' => $playlistPath,
+            'playlist_exists' => File::exists($playlistPath),
+            'stream_status' => $this->streamService->streamStatus($id),
+            'stream_url' => $this->streamService->streamUrl($id),
+            'last_logs' => $logs,
         ]);
     }
 }

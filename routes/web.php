@@ -25,6 +25,7 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('cameras/{id}/stream', [CameraController::class, 'stream'])->name('cameras.stream');
     Route::post('cameras/{id}/start-stream', [CameraController::class, 'startStream'])->name('cameras.start-stream');
     Route::get('cameras/{id}/stream-status', [CameraController::class, 'streamStatus'])->name('cameras.stream-status');
+    Route::get('debug/stream/{id}', [CameraController::class, 'debugStream'])->name('cameras.debug-stream');
 
     Route::resource('recordings', RecordingController::class)->only(['index', 'show', 'destroy']);
     Route::get('recordings/{recording}/file', [RecordingController::class, 'file'])->name('recordings.file');

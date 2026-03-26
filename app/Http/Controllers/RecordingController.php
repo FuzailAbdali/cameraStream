@@ -31,8 +31,8 @@ class RecordingController extends Controller
 
     public function destroy(Recording $recording): RedirectResponse
     {
-        if (Storage::disk('recordings')->exists($recording->file_path)) {
-            Storage::disk('recordings')->delete($recording->file_path);
+        if (Storage::disk('public')->exists($recording->file_path)) {
+            Storage::disk('public')->delete($recording->file_path);
         }
 
         $recording->delete();
@@ -42,9 +42,9 @@ class RecordingController extends Controller
 
     public function file(Recording $recording)
     {
-        abort_unless(Storage::disk('recordings')->exists($recording->file_path), 404);
+        abort_unless(Storage::disk('public')->exists($recording->file_path), 404);
 
-        return Storage::disk('recordings')->response($recording->file_path, basename($recording->file_path), [
+        return Storage::disk('public')->response($recording->file_path, basename($recording->file_path), [
             'Content-Type' => 'video/mp4',
         ]);
     }
