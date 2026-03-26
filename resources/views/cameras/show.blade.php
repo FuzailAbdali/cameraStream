@@ -41,7 +41,7 @@
 
     function setStatus(status) {
         const value = (status || 'stopped').toLowerCase();
-        statusBadge.classList.remove('text-bg-secondary', 'text-bg-warning', 'text-bg-success');
+        statusBadge.classList.remove('text-bg-secondary', 'text-bg-warning', 'text-bg-success', 'text-bg-danger');
 
         if (value === 'live') {
             statusBadge.classList.add('text-bg-success');
@@ -55,6 +55,14 @@
             statusBadge.textContent = 'Starting...';
             loading.classList.remove('d-none');
             loading.textContent = 'Starting stream...';
+            return;
+        }
+
+        if (value === 'failed') {
+            statusBadge.classList.add('text-bg-danger');
+            statusBadge.textContent = 'Failed';
+            loading.classList.remove('d-none');
+            loading.textContent = 'Stream failed to start. Check debug endpoint and logs.';
             return;
         }
 
@@ -106,6 +114,29 @@
         }
     }
 
+    let pollTimer = null;
+
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function startPolling() {
+        if (pollTimer) {
+            return;
+        }
+
+        pollTimer = setInterval(() => {
+            pollStatus().catch(() => {
+                if (!currentPlaylistUrl) {
+                    setStatus('stopped');
+                }
+            });
+        }, 5000);
+    }
+
     async function pollStatus() {
         const response = await fetch(container.dataset.statusUrl, {
             method: 'GET',
@@ -123,10 +154,16 @@
         if (status === 'live' && data.stream_url) {
             currentPlaylistUrl = data.stream_url;
             await attachPlayer(currentPlaylistUrl);
+            stopPolling();
+        }
+
+        if (status === 'failed') {
+            stopPolling();
         }
     }
 
     async function startStream() {
+        startPolling();
         startButton.disabled = true;
         setStatus('starting');
 
@@ -152,6 +189,11 @@
             if (status === 'live' && data.stream_url) {
                 currentPlaylistUrl = data.stream_url;
                 await attachPlayer(currentPlaylistUrl);
+                stopPolling();
+            }
+
+            if (status === 'failed') {
+                stopPolling();
             }
         } catch (error) {
             setStatus('stopped');
@@ -167,12 +209,6 @@
         attachPlayer(currentPlaylistUrl);
     }
 
-    setInterval(() => {
-        pollStatus().catch(() => {
-            if (!currentPlaylistUrl) {
-                setStatus('stopped');
-            }
-        });
-    }, 5000);
+    startPolling();
 </script>
 @endpush

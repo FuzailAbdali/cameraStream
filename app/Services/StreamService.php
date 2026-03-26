@@ -5,10 +5,10 @@ namespace App\Services;
 use App\Models\Camera;
 use App\Models\Recording;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
-use Throwable;
+use Symfony\Component\Process\Process;
 
 class StreamService
 {
@@ -17,121 +17,112 @@ class StreamService
         $this->ensureStreamDirectory($camera);
         $this->cleanupStreamSegments($camera);
 
-        if ($this->hasStreamLock($camera)) {
+        $this->setStreamStatus($camera, 'starting');
+
+        $rtspUrl = $camera->buildRtspUrl();
+        $outputPath = $this->streamStoragePath($camera);
+        $playlistPath = $this->playlistPath($camera);
+
+        Log::info("Starting stream for camera {$camera->id}");
+        Log::info('RTSP URL: '.$rtspUrl);
+        Log::info('Output path: '.$outputPath);
+
+        $process = new Process([
+            'ffmpeg',
+            '-rtsp_transport', 'tcp',
+            '-i', $rtspUrl,
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-tune', 'zerolatency',
+            '-c:a', 'aac',
+            '-f', 'hls',
+            '-hls_time', '2',
+            '-hls_list_size', '3',
+            '-hls_flags', 'delete_segments',
+            $playlistPath,
+        ]);
+
+        $process->start();
+
+        if ($this->waitForStreamReadiness($camera, 8, 500000)) {
+            $this->setStreamStatus($camera, 'live');
+            Cache::put($this->streamPidCacheKey($camera), $process->getPid(), now()->addMinutes(30));
+
+            Log::info("Stream is live for camera {$camera->id}");
+
             return $this->streamUrl($camera);
         }
 
-        $this->setStreamLock($camera);
-        $this->setStreamStatus($camera, 'starting');
-
-        try {
-            Process::start([
-                'ffmpeg',
-                '-y',
-                '-rtsp_transport', 'tcp',
-                '-i', $camera->buildRtspUrl(),
-                '-fflags', 'nobuffer',
-                '-analyzeduration', '1000000',
-                '-probesize', '1000000',
-                '-map', '0:v:0',
-                '-map', '0:a?',
-                '-c:v', 'libx264',
-                '-preset', 'veryfast',
-                '-tune', 'zerolatency',
-                '-pix_fmt', 'yuv420p',
-                '-c:a', 'aac',
-                '-ar', '44100',
-                '-ac', '1',
-                '-b:a', '128k',
-                '-f', 'hls',
-                '-hls_time', '2',
-                '-hls_list_size', '6',
-                '-hls_flags', 'delete_segments+independent_segments',
-                '-hls_segment_filename', $this->segmentPathPattern($camera),
-                $this->playlistPath($camera),
-            ]);
-        } catch (Throwable $exception) {
-            $this->releaseStreamLock($camera);
-            $this->setStreamStatus($camera, 'stopped');
-
-            Log::error('Failed to start camera stream.', [
-                'camera_id' => $camera->id,
-                'error' => $exception->getMessage(),
-            ]);
-
-            return null;
+        if (! $process->isRunning()) {
+            Log::error('FFmpeg failed: '.$process->getErrorOutput());
         }
 
-        return $this->streamUrl($camera);
+        $this->setStreamStatus($camera, 'failed');
+
+        return null;
     }
 
     public function streamUrl(Camera $camera): ?string
     {
-        $playlist = $this->streamDirectory($camera).'/index.m3u8';
-
-        return Storage::disk('streams')->exists($playlist)
-            ? Storage::disk('streams_public')->url($playlist)
+        return $this->isStreamReady($camera)
+            ? Storage::disk('public')->url($this->streamRelativeDirectory($camera).'/index.m3u8')
             : null;
     }
 
     public function streamStatus(Camera $camera): string
     {
-        if ($this->streamUrl($camera) !== null) {
-            $this->setStreamLock($camera);
+        if ($this->isStreamReady($camera)) {
             $this->setStreamStatus($camera, 'live');
 
             return 'live';
         }
 
-        if ($this->hasStreamLock($camera)) {
-            $cached = Cache::get($this->streamStatusCacheKey($camera), 'starting');
+        $status = Cache::get($this->streamStatusCacheKey($camera), 'stopped');
 
-            return in_array($cached, ['starting', 'live'], true) ? $cached : 'starting';
+        if ($status === 'live' && ! $this->waitForStreamReadiness($camera, 2, 300000)) {
+            $this->setStreamStatus($camera, 'failed');
+
+            return 'failed';
         }
 
-        $this->setStreamStatus($camera, 'stopped');
+        return in_array($status, ['starting', 'live', 'failed', 'stopped'], true) ? $status : 'stopped';
+    }
 
-        return 'stopped';
+    public function isStreamReady(Camera $camera): bool
+    {
+        return File::exists($this->playlistPath($camera));
     }
 
     public function captureRecording(Camera $camera, int $seconds = 90): ?Recording
     {
-        $directory = (string) $camera->id;
-        Storage::disk('recordings')->makeDirectory($directory);
+        $directory = $this->recordingStoragePath($camera);
+        File::makeDirectory($directory, 0755, true, true);
 
-        $filename = now()->format('Ymd_His_u').'_'.uniqid().'.mp4';
-        $relativePath = $directory.'/'.$filename;
+        $filename = now()->format('Ymd_His_u').'.mp4';
+        $relativePath = $this->recordingRelativeDirectory($camera).'/'.$filename;
 
-        try {
-            $process = Process::timeout($seconds + 30)->run([
-                'ffmpeg',
-                '-y',
-                '-rtsp_transport', 'tcp',
-                '-i', $camera->buildRtspUrl(),
-                '-map', '0:v:0',
-                '-map', '0:a?',
-                '-t', (string) $seconds,
-                '-c:v', 'libx264',
-                '-preset', 'veryfast',
-                '-pix_fmt', 'yuv420p',
-                '-c:a', 'aac',
-                '-movflags', '+faststart',
-                Storage::disk('recordings')->path($relativePath),
-            ]);
-        } catch (Throwable $exception) {
-            Log::error('FFmpeg recording command failed to run.', [
-                'camera_id' => $camera->id,
-                'error' => $exception->getMessage(),
-            ]);
+        $process = new Process([
+            'ffmpeg',
+            '-y',
+            '-rtsp_transport', 'tcp',
+            '-i', $camera->buildRtspUrl(),
+            '-map', '0:v:0',
+            '-map', '0:a?',
+            '-t', (string) $seconds,
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac',
+            '-movflags', '+faststart',
+            Storage::disk('public')->path($relativePath),
+        ]);
 
-            return null;
-        }
+        $process->run();
 
-        if (! $process->successful() || ! Storage::disk('recordings')->exists($relativePath)) {
+        if (! $process->isSuccessful() || ! Storage::disk('public')->exists($relativePath)) {
             Log::warning('FFmpeg recording did not produce output.', [
                 'camera_id' => $camera->id,
-                'exit_code' => $process->exitCode(),
-                'error_output' => $process->errorOutput(),
+                'error_output' => $process->getErrorOutput(),
             ]);
 
             return null;
@@ -147,40 +138,58 @@ class StreamService
 
     public function cleanupCameraStreams(Camera $camera): void
     {
-        Storage::disk('streams')->deleteDirectory($this->streamDirectory($camera));
+        File::deleteDirectory($this->streamStoragePath($camera));
         Cache::forget($this->streamStatusCacheKey($camera));
-        $this->releaseStreamLock($camera);
+        Cache::forget($this->streamPidCacheKey($camera));
+    }
+
+    private function waitForStreamReadiness(Camera $camera, int $maxAttempts = 5, int $sleepMicros = 500000): bool
+    {
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            if ($this->isStreamReady($camera)) {
+                return true;
+            }
+
+            usleep($sleepMicros);
+        }
+
+        return false;
     }
 
     private function cleanupStreamSegments(Camera $camera): void
     {
-        $directory = $this->streamDirectory($camera);
-
-        if (Storage::disk('streams')->exists($directory)) {
-            Storage::disk('streams')->deleteDirectory($directory);
-        }
-
-        Storage::disk('streams')->makeDirectory($directory);
-    }
-
-    private function streamDirectory(Camera $camera): string
-    {
-        return (string) $camera->id;
+        File::deleteDirectory($this->streamStoragePath($camera));
+        File::makeDirectory($this->streamStoragePath($camera), 0755, true, true);
     }
 
     private function ensureStreamDirectory(Camera $camera): void
     {
-        Storage::disk('streams')->makeDirectory($this->streamDirectory($camera));
+        File::makeDirectory($this->streamStoragePath($camera), 0755, true, true);
+    }
+
+    private function streamRelativeDirectory(Camera $camera): string
+    {
+        return 'streams/'.(string) $camera->id;
+    }
+
+    private function recordingRelativeDirectory(Camera $camera): string
+    {
+        return 'recordings/'.(string) $camera->id;
+    }
+
+    private function streamStoragePath(Camera $camera): string
+    {
+        return storage_path('app/public/'.$this->streamRelativeDirectory($camera));
+    }
+
+    private function recordingStoragePath(Camera $camera): string
+    {
+        return storage_path('app/public/'.$this->recordingRelativeDirectory($camera));
     }
 
     private function playlistPath(Camera $camera): string
     {
-        return Storage::disk('streams')->path($this->streamDirectory($camera).'/index.m3u8');
-    }
-
-    private function segmentPathPattern(Camera $camera): string
-    {
-        return Storage::disk('streams')->path($this->streamDirectory($camera).'/segment_%03d.ts');
+        return $this->streamStoragePath($camera).'/index.m3u8';
     }
 
     private function streamStatusCacheKey(Camera $camera): string
@@ -188,24 +197,9 @@ class StreamService
         return 'camera:'.$camera->id.':stream_status';
     }
 
-    private function streamLockCacheKey(Camera $camera): string
+    private function streamPidCacheKey(Camera $camera): string
     {
-        return 'camera:'.$camera->id.':stream_lock';
-    }
-
-    private function setStreamLock(Camera $camera): void
-    {
-        Cache::put($this->streamLockCacheKey($camera), true, now()->addSeconds(45));
-    }
-
-    private function hasStreamLock(Camera $camera): bool
-    {
-        return Cache::has($this->streamLockCacheKey($camera));
-    }
-
-    private function releaseStreamLock(Camera $camera): void
-    {
-        Cache::forget($this->streamLockCacheKey($camera));
+        return 'camera:'.$camera->id.':stream_pid';
     }
 
     private function setStreamStatus(Camera $camera, string $status): void

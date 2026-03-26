@@ -50,14 +50,14 @@ return [
 
         'streams' => [
             'driver' => 'local',
-            'root' => storage_path('app/streams'),
+            'root' => storage_path('app/public/streams'),
             'throw' => false,
             'report' => false,
         ],
 
         'streams_public' => [
             'driver' => 'local',
-            'root' => storage_path('app/streams'),
+            'root' => storage_path('app/public/streams'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage/streams',
             'visibility' => 'public',
             'throw' => false,
@@ -66,7 +66,7 @@ return [
 
         'recordings' => [
             'driver' => 'local',
-            'root' => storage_path('app/recordings'),
+            'root' => storage_path('app/public/recordings'),
             'throw' => false,
             'report' => false,
         ],
@@ -99,7 +99,6 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
-        public_path('storage/streams') => storage_path('app/streams'),
     ],
 
 ];
